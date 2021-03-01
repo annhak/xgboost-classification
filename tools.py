@@ -1,7 +1,11 @@
+from sklearn.metrics import confusion_matrix
 
-def print_results(test_set_labels, tp, fp):
-    data_scientists = len(test_set_labels.index)
-    wants_to_change = test_set_labels.sum()
+
+def print_results(target, predicted):
+    [_, fp], [_, tp] = confusion_matrix(target, predicted)
+
+    data_scientists = len(target.index)
+    wants_to_change = target.sum()
     # does_not_want = data_scientists - wants_to_change
     percentage = round(wants_to_change / data_scientists * 100, 1)
 

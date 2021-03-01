@@ -11,115 +11,114 @@ import xgboost
 
 import tools
 
-# Dataset from Kaggle
-data = pd.read_csv("./aug_train.csv")
 
-# Clean data by transforming experience years to numeric
-data.experience[data['experience'] == '>20'] = 21
-data.experience[data['experience'] == '<1'] = 0
-data.experience = pd.to_numeric(data.experience)
+def load_and_label_data(path):
+    # Dataset from Kaggle
+    data = pd.read_csv(path)
 
-# Transform also company size to numeric
-data['company_size'] = pd.to_numeric(data['company_size'].map(
-    {'<10': 1, '10/49': 10, '50-99': 50, '100-500': 100, '500-999': 500,
-     '1000-4999': 1000, '5000-9999': 5000, '10000+': 10000}))
+    # Clean data by transforming experience years to numeric
+    data.experience[data['experience'] == '>20'] = 21
+    data.experience[data['experience'] == '<1'] = 0
+    data.experience = pd.to_numeric(data.experience)
 
-# Encode labels for categorical columns. Pandas get_dummies() works as one-hot
-# encoder but works well with pandas dfs. Leave non-interesting columns out
-info = pd.get_dummies(data.drop(['enrollee_id', 'target', 'city'], axis=1))
+    # Transform also company size to numeric
+    data['company_size'] = pd.to_numeric(data['company_size'].map(
+        {'<10': 1, '10/49': 10, '50-99': 50, '100-500': 100, '500-999': 500,
+         '1000-4999': 1000, '5000-9999': 5000, '10000+': 10000}))
 
-# The new column names can include symbols the model cannot handle. Replace them
-info.columns = info.columns.str.replace('>', 'over')
-info.columns = info.columns.str.replace('<', 'under')
-# What to predict: Is the person willing to change jobs (0 / 1)
-target = data['target']
+    # Encode categorical columns. Pandas get_dummies() works as one-hot
+    # encoder but works well with pandas dfs. Leave non-interesting columns out
+    info = pd.get_dummies(data.drop(['enrollee_id', 'target', 'city'], axis=1))
 
-# Split data into train and test sets
-info_train, info_test, target_train, target_test = model_selection.\
-    train_test_split(info, target, test_size=0.3, random_state=1)
+    # New column names can include symbols the model cannot handle. Replace them
+    info.columns = info.columns.str.replace('>', 'over')
+    info.columns = info.columns.str.replace('<', 'under')
+    # What to predict: Is the person willing to change jobs (0 / 1)
+    target = data['target']
+    return info, target
 
-# Create a classifier and test the dataset with cross validation
-classifier_xgb = xgboost.XGBClassifier(
-    max_depth=6, random_state=1, use_label_encoder=False)
-accuracies = model_selection.cross_val_score(classifier_xgb, info, target)
-print(f'Model accuracies with 5-fold CV: {accuracies}')
 
-# K-fold cross-validation gives ~same results -> dataset OK -> fit and predict
-classifier_xgb.fit(info_train, target_train)
+def validate_and_split(info, target):
+    # Create a classifier and test the dataset with cross validation
+    classifier_xgb = xgboost.XGBClassifier(
+        max_depth=6, random_state=1, use_label_encoder=False)
+    accuracies = model_selection.cross_val_score(classifier_xgb, info, target)
+    print(f'Model accuracies with 5-fold CV: {accuracies}')
 
-predicted_test = classifier_xgb.predict(info_test)
-[tn, fp], [fn, tp] = confusion_matrix(target_test, predicted_test)
-tools.print_results(test_set_labels=target_test, tp=tp, fp=fp)
+    # Split data into train and test sets
+    info_train, info_test, target_train, target_test = model_selection.\
+        train_test_split(info, target, test_size=0.3, random_state=1)
+    return info_train, info_test, target_train, target_test
 
-# Plot one of the resulting trees to examine what happens inside
-xgboost.plot_tree(classifier_xgb, rankdir='LR')
-# Plot feature importance to see what are the most relevant features
-xgboost.plot_importance(classifier_xgb, importance_type='weight')
-xgboost.plot_importance(classifier_xgb, importance_type='cover')
-xgboost.plot_importance(classifier_xgb, importance_type='gain')
 
-# Select only best features for the final model and closer examination
-selection = SelectFromModel(classifier_xgb, threshold=0.03, prefit=True)
-feature_names = info_train.columns[selection.get_support()]
-print(f'{len(feature_names)} most important features:  {str(feature_names)}')
+def feature_selection(info_train, info_test, target_train, target_test):
+    # K-fold cv gives ~same results -> dataset OK -> fit and predict
+    classifier_xgb = xgboost.XGBClassifier(
+        max_depth=6, random_state=1, use_label_encoder=False)
+    classifier_xgb.fit(info_train, target_train)
 
-# Get only the selected features for further training and testing
-train_features = pd.DataFrame(selection.transform(info_train))
-train_features.columns = feature_names
-test_features = pd.DataFrame(selection.transform(info_test))
-test_features.columns = feature_names
+    predicted_test = classifier_xgb.predict(info_test)
+    [tn, fp], [fn, tp] = confusion_matrix(target_test, predicted_test)
+    tools.print_results(target=target_test, predicted=predicted_test)
 
-# Create a new classifier as the old one was for all features
-predictor = xgboost.XGBClassifier(
-    max_depth=3, random_state=1, use_label_encoder=False)
-predictor.fit(train_features, target_train)
-predicted = predictor.predict(test_features)
+    # Plot one of the resulting trees to examine what happens inside
+    xgboost.plot_tree(classifier_xgb, rankdir='LR')
+    # Plot feature importance to see what are the most relevant features
+    xgboost.plot_importance(classifier_xgb, importance_type='weight')
+    xgboost.plot_importance(classifier_xgb, importance_type='cover')
+    xgboost.plot_importance(classifier_xgb, importance_type='gain')
+#    plt.figure()
+#    pd.Series(abs(classifier.coef_[0]), index=info_train.columns).plot(
+#        kind='barh')
 
-# Print the results
-[_, fp], [_, tp] = confusion_matrix(target_test, predicted)
-tools.print_results(test_set_labels=target_test, tp=tp, fp=fp)
+    # Select only best features for the final model and closer examination
+    selection = SelectFromModel(classifier_xgb, threshold=0.03, prefit=True)
+    feature_names = info_train.columns[selection.get_support()]
+    print(f'{len(feature_names)} most important columns:  {str(feature_names)}')
+    return selection
 
-# Look at a treeplot to see paths of one tree
-xgboost.plot_tree(predictor, rankdir='LR')
 
-"""
-import matplotlib.pyplot as plt
-import numpy as np
-for i in feature_names:
-    if info[i].max() != 1:
-        continue
-    dat = info[i]
-    false_and_wants = round((dat[target == 1] == 0).sum() / len(dat.index), 2)
-    true_and_wants = round(dat[target == 1].sum() / len(dat.index), 2)
-    false_and_wants_not = round(
-        (dat[target == 0] == 0).sum() / len(dat.index), 2)
-    true_and_wants_not = round(dat[target == 0].sum() / len(dat.index), 2)
-    has_true = round(info[i].sum() / len(dat.index), 2)
+def pick_features(selection, data):
+    # Get only the selected features for further training and testing
+    feature_names = data.columns[selection.get_support()]
+    features = pd.DataFrame(selection.transform(data))
+    features.columns = feature_names
+    return features
 
-    print(str(i) + str(true_and_wants / (true_and_wants + true_and_wants_not)))
-    print(str(i) + ' ' + str([[false_and_wants, true_and_wants], 
-        [false_and_wants_not, true_and_wants_not]]))
 
-    print(i + ' ' + str(true_and_wants) + ' ' + str(true_and_wants_not) + ' ' + 
-    str(true_and_wants / has_true))
+def create_labeler(train_features, test_features, target_train, target_test):
+    # Create a new classifier as the old one was for all features
+    predictor = xgboost.XGBClassifier(
+        max_depth=3, random_state=1, use_label_encoder=False)
+    predictor.fit(train_features, target_train)
+    predicted = predictor.predict(test_features)
 
-column = 'city_development_index'
-results = []
-for i in sorted(data[column].astype('category').unique()):
-    try:
-        d = data[data[column] == i]
-        perc = round(sum(d['target'] == 1) / len(d.index), 3)
-        print(str(i) + ': ' + str(perc))
-        results.append(perc)
-    except Exception as ex:
-        print(ex)
-        continue
+    tools.print_results(target=target_test, predicted=predicted)
 
-plt.figure()
-plt.plot(results)
+    # Look at a tree plot to see paths of one tree
+    xgboost.plot_tree(predictor, rankdir='LR')
+    return predictor
 
-nonnan = data[np.isfinite(data['experience'])]
-plt.figure()
-plt.hist(nonnan['experience'], bins=22)
 
-"""
+def train():
+    info, target = load_and_label_data("./aug_train.csv")
+    info_train, info_test, target_train, target_test = validate_and_split(
+        info, target)
+    selection = feature_selection(
+        info_train, info_test, target_train, target_test)
+    train_features = pick_features(selection, info_train)
+    test_features = pick_features(selection, info_test)
+    predictor = create_labeler(
+        train_features, test_features, target_train, target_test)
+    return selection, predictor
+
+
+def predict(selection, predictor):
+    info, target = load_and_label_data('./aug_train.csv')
+    predicted = predictor.predict(pick_features(selection, info))
+    tools.print_results(target, predicted)
+
+
+if __name__ == '__main__':
+    feature_selection, final_predictor = train()
+    predict(feature_selection, final_predictor)
