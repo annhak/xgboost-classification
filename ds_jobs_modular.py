@@ -121,8 +121,9 @@ def predict(selection, predictor):
 
 
 def select_columns(df, names):
-    # selected = [column for column in anna.columns if column in feature_names]
-    missing = [name for name in names if name not in anna.columns]
+    selected = [column for column in df.columns if column in names]
+    df = df[selected]
+    missing = [name for name in names if name not in df.columns]
     df[missing] = 0
     cols = sorted(df.columns.tolist())
     df = df[cols]
