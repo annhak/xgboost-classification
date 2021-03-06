@@ -5,7 +5,6 @@ Author: Anna Hakala
 
 import pandas as pd
 from sklearn import model_selection
-from sklearn.metrics import confusion_matrix
 from sklearn.feature_selection import SelectFromModel
 import xgboost
 
@@ -48,8 +47,7 @@ print(f'Model accuracies with 5-fold CV: {accuracies}')
 classifier_xgb.fit(info_train, target_train)
 
 predicted_test = classifier_xgb.predict(info_test)
-[tn, fp], [fn, tp] = confusion_matrix(target_test, predicted_test)
-tools.print_results(test_set_labels=target_test, tp=tp, fp=fp)
+tools.print_results(target_test, predicted_test)
 
 # Plot one of the resulting trees to examine what happens inside
 xgboost.plot_tree(classifier_xgb, rankdir='LR')
@@ -74,10 +72,7 @@ predictor = xgboost.XGBClassifier(
     max_depth=3, random_state=1, use_label_encoder=False)
 predictor.fit(train_features, target_train)
 predicted = predictor.predict(test_features)
-
-# Print the results
-[_, fp], [_, tp] = confusion_matrix(target_test, predicted)
-tools.print_results(test_set_labels=target_test, tp=tp, fp=fp)
+tools.print_results(target_test, predicted)
 
 # Look at a treeplot to see paths of one tree
 xgboost.plot_tree(predictor, rankdir='LR')
