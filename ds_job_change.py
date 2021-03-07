@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import tools
 
 # Dataset from Kaggle
-data = pd.read_csv("./aug_train.csv")
+data = pd.read_csv("./data/aug_train.csv")
 
 # Clean data by transforming experience years to numeric
 data.experience[data['experience'] == '>20'] = 21

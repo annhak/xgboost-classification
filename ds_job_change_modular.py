@@ -11,7 +11,7 @@ import xgboost
 import tools
 
 
-def load_and_label_data(path='./aug_train.csv'):
+def load_and_label_data(path):
     # Dataset from Kaggle
     dataset = pd.read_csv(path)
 
@@ -102,7 +102,8 @@ def create_labeler(train_features, test_features, target_train, target_test):
 
 
 def train():
-    info, target, all_feature_names = load_and_label_data("./aug_train.csv")
+    info, target, all_feature_names = load_and_label_data(
+        "./data/aug_train.csv")
     info_train, info_test, target_train, target_test = validate_and_split(
         info, target)
     selection, feature_names = feature_selection(
@@ -115,7 +116,7 @@ def train():
 
 
 def predict(selection, predictor):
-    info, target, _ = load_and_label_data('./aug_train.csv')
+    info, target, _ = load_and_label_data('./data/aug_train.csv')
     predicted_results = predictor.predict(pick_features(selection, info))
     tools.print_results(target, predicted_results)
 
@@ -133,7 +134,7 @@ def select_columns(df, names):
 if __name__ == '__main__':
     selector, final_predictor, all_targets, features_from_training = train()
 
-    anna, _, _ = load_and_label_data('./me_now.txt')
+    anna, _, _ = load_and_label_data('./data/me_now.txt')
     data = select_columns(anna, features_from_training)
 
     predicted = final_predictor.predict(pick_features(selector, data))
@@ -141,7 +142,8 @@ if __name__ == '__main__':
 
 #    predict(selector, final_predictor)
 
-    all_ds, targets, feature_names_2 = load_and_label_data('./aug_train.csv')
+    all_ds, targets, feature_names_2 = load_and_label_data(
+        './data/aug_train.csv')
     all_ds = select_columns(all_ds, feature_names_2)
 
     predicted = final_predictor.predict(
@@ -155,5 +157,3 @@ if __name__ == '__main__':
 
     len(all_ds[all_ds['gender_Male'] == 1]) / len(all_ds)
     len(wrong[wrong['gender_Male'] == 1]) / len(wrong)
-
-# TODO: testaussetti -> mistä (tarkista aapon koepaperi)
