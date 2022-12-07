@@ -50,10 +50,10 @@ def encoding_example(original, labelled):
     original = original['gender'].loc[43:47].reset_index(drop=True).to_frame()
     print('Example of the original column:')
     print(original)
-    input()
+    input('Press any key to continue')
     gender_columns = [col for col in labelled.columns if col.startswith('gender')]
     print('New gender columns after labelling:' + str(gender_columns))
-    input()
+    input('Press any key to continue')
     transformed = labelled[gender_columns].loc[43:47].reset_index(drop=True)
     print('Original and label encoded version:')
     print(original.join(transformed))
